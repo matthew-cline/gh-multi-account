@@ -1,0 +1,37 @@
+The config file is named "tokens.conf" and goes in the directory
+$GH_CONFIG_DIR/multi-account, where GH_CONFIG_DIR is usually $HOME/.config/gh
+
+Lines in the config file take the format of "token_id: token" (without the
+quotes).  Multiple spaces and tabs are allowed between the colon and the.  The
+colon can be omitted if there is at least one whitespace character between the
+id and the token.  The token id must start at the beginning of the line, with
+no whitespace in front of it.
+
+A token id has three different formats.  From most specific to least
+specific, the formats are:
+
+    host/account/repo
+    host/account
+    host
+
+The most specific id which matches the current repo will be used.
+
+Example token ids:
+
+    github.com/google/guava
+    github.com/google
+    github.com
+
+If the token value is either "none" (without the quotes) or blank then the
+wrapper script will pass no token to the GitHub CLI executable, allowing the
+normal authentication flow to happen.
+
+The order of the lines is unimportant, except when the exact same token id is
+used multiple times, in which case the last line using that token id is the one
+which will count.
+
+Empty lines and lines starting with a "#" are ignored.
+
+An example config line, with the token redacted:
+
+github.com/google/guava:    ****************************************
