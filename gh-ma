@@ -30,7 +30,6 @@ set -o nounset
 
 conf_dir="$GH_CONFIG_DIR/multi-account"
 conf_file="$conf_dir/tokens.conf"
-source_file="$conf_dir/sourced.sh"
 
 case ${1:-""} in
     --version|--help|alias|completion|config|help)
@@ -59,24 +58,11 @@ case ${1:-""} in
         else
             echo \"$conf_file\" exists
         fi
-        if [[ ! -e "$source_file" ]]; then
-            echo Creating empty file \"$source_file\"
-            touch $source_file
-        else
-            echo \"$source_file\" exists
-        fi
         exit 0
         ;;
     *)
         ;;
 esac
-
-# For any customization to the enviroment the user might want to do
-if [[ -r "$source_file" ]]; then
-    set +o nounset
-    source $source_file
-    set -o nounset
-fi
 
 if [[ ! -e "$conf_file" ]]; then
     echo gh-ma: ERROR: \"$conf_file\" does not exist 1>&2
