@@ -1,0 +1,174 @@
+#!/bin/bash
+# vim: set expandtab:tabstop=4:shiftwidth=4
+
+# SPDX-License-Identifier: LGPL-3.0-or-later
+# Copyright Matthew Cline (2021)
+# License: LGPL v3+
+
+set -o nounset
+
+gh_exe="/usr/bin/gh"
+gh_ma_ver="1.0.0"
+GH_CONFIG_DIR=${GH_CONFIG_DIR:-"$HOME/.config/gh"}
+
+if [[ ! -e "$gh_exe" ]]; then
+    echo gh-ma: ERROR: \"$gh_exe\" does not exist 1>&2
+    exit 1
+fi
+if [[ ! -e "$GH_CONFIG_DIR" ]]; then
+    echo gh-ma: ERROR: gh config dir \"$GH_CONFIG_DIR\" does not exist 1>&2
+    exit 1
+fi
+
+# If a GitHub token is already set we have nothing to do
+set +o nounset
+if [[ -n "$GH_TOKEN" || -n "$GITHUB_TOKEN" || -n "$GH_ENTERPRISE_TOKEN" ||
+      -n "$GITHUB_ENTERPRISE_TOKEN" ]]; then
+    exec $gh_exe "$@"
+fi
+set -o nounset
+
+conf_dir="$GH_CONFIG_DIR/multi-account"
+conf_file="$conf_dir/tokens.conf"
+source_file="$conf_dir/sourced.sh"
+
+case ${1:-""} in
+    --version|--help|alias|completion|config|help)
+        # These don't use authorization, simply pass to gh
+        exec $gh_exe "$@"
+        ;;
+    --version-ma)
+        echo "gh multi account version $gh_ma_ver"
+        exit 0
+        ;;
+    --is-ma)
+        # Simply return 0, for use by scripts
+        exit 0
+        ;;
+    --setup-ma)
+        # Create config dir and empty conf files
+        if [[ ! -e "$conf_dir" ]]; then
+            echo Creating directory \"$conf_dir\"
+            mkdir $conf_dir
+        else
+            echo \"$conf_dir\" exists
+        fi
+        if [[ ! -e "$conf_file" ]]; then
+            echo Creating empty file \"$conf_file\"
+            touch $conf_file
+        else
+            echo \"$conf_file\" exists
+        fi
+        if [[ ! -e "$source_file" ]]; then
+            echo Creating empty file \"$source_file\"
+            touch $source_file
+        else
+            echo \"$source_file\" exists
+        fi
+        exit 0
+        ;;
+    *)
+        ;;
+esac
+
+# For any customization to the enviroment the user might want to do
+if [[ -r "$source_file" ]]; then
+    set +o nounset
+    source $source_file
+    set -o nounset
+fi
+
+if [[ ! -e "$conf_file" ]]; then
+    echo gh-ma: ERROR: \"$conf_file\" does not exist 1>&2
+    echo gh-ma: Run \"gh --setup-ma\" to create empty config files 1>&2
+    exit 1
+fi
+if [[ ! -r "$conf_file" ]]; then
+    echo gh-ma: ERROR: \"$conf_file\" not readable 1>&2
+    exit 1
+fi
+
+# Bash file descriptor redirection, so we don't have to do "done < $conf"
+# at the end of the while loop.  Also makes for a cleaner test of read
+# failure.
+FD=""
+exec {FD}<"$conf_file"
+
+if [[ -z "${FD}" ]]; then
+    echo gh-ma: ERROR: could not read \"$conf_file\" 1>&2
+    exit 1
+fi
+
+declare -A tokens_arr
+while IFS=$': \t' read -u ${FD} id tok ; do
+    # Ignore empty lines and comments
+    if [[ -z "$id" || "$id" =~ ^# ]]; then
+        continue
+    fi
+    if [[ -z "$tok" ]]; then
+        tok="none"
+    fi
+    tokens_arr["$id"]="$tok"
+done
+
+exec {FD}<&- # close file
+
+id_arr=("${!tokens_arr[@]}")
+if [[ ${#id_arr[@]} -eq 0 ]]; then
+    echo gh-ma: ERROR: \"$conf_file\" has no tokens 1>&2
+    exit 1
+fi
+
+remote_url=$(git config remote.origin.url)
+
+if [[ ! $? || -z "$remote_url" ]]; then
+    echo gh-ma: ERROR: could not get remote url of repo 1>&2
+    exit 1
+fi
+
+# Get id in the form of "host/account/repo" from
+# "https://host/account/repo.git" or "host:account/repo"
+# from "git@host:account/repo.git"
+repo_id=${remote_url#https://}
+repo_id=${repo_id##*@}
+repo_id=${repo_id%.git}
+
+# Split into parts
+OLD_IFS="$IFS"
+IFS=':/' id_parts=($repo_id)
+IFS="$OLD_IFS"
+
+if [[ ${#id_parts[@]} -ne 3 ]]; then
+    echo gh-ma: ERROR: unable to parse remote url \"$remote_url\" 1>&2
+    exit 1
+fi
+
+# Possible token ids, from most specific to least specific
+possible_ids=(
+    "${id_parts[0]}/${id_parts[1]}/${id_parts[2]}"
+    "${id_parts[0]}/${id_parts[1]}"
+    "${id_parts[0]}"
+)
+
+token=""
+for id in ${possible_ids[@]}; do
+    if [[ -n ${tokens_arr[$id]+unset} ]]; then
+        token="${tokens_arr[$id]}"
+        break
+    fi
+done
+
+if [[ -z "$token" ]]; then
+    echo gh-ma: ERROR: no matching token for \"$remote_url\" 1>&2
+    exit 1
+fi
+
+if [[ "$token" == "none" ]]; then
+    # User wants to specifically log in for this.
+    exec $gh_exe "$@"
+fi
+
+export GH_TOKEN="$token"
+export GH_ENTERPRISE_TOKEN="$token"
+
+exec $gh_exe "$@"
