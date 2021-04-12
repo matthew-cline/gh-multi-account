@@ -11,6 +11,13 @@ set -o nounset
 # Basic setup
 
 gh_ma_ver="1.0.0"
+gh_ma_url="https://github.com/matthew-cline/gh-multi-account"
+
+function gh_ma_help() {
+    echo For help see: 1>&2
+    echo $gh_ma_url/blob/v$gh_ma_ver/README.md 1>&2
+}
+
 gh_conf_dir=${GH_CONFIG_DIR:-"$HOME/.config/gh"}
 conf_dir=${GH_MA_CONFIG_DIR:-"$gh_conf_dir/multi-account"}
 
@@ -18,19 +25,23 @@ conf_file="$conf_dir/tokens.conf"
 
 if [[ ! -e "$gh_conf_dir" ]]; then
     echo gh-ma: ERROR: gh config dir \"$gh_conf_dir\" does not exist 1>&2
+    gh_ma_help
     exit 1
 fi
 if [[ ! -e "$conf_dir" ]]; then
     echo gh-ma: ERROR: gh multi account config dir \"$conf_dir\" does \
         not exist 1>&2
+    gh_ma_help
     exit 1
 fi
 if [[ ! -e "$conf_file" ]]; then
     echo gh-ma: ERROR: \"$conf_file\" does not exist 1>&2
+    gh_ma_help
     exit 1
 fi
 if [[ ! -r "$conf_file" ]]; then
     echo gh-ma: ERROR: \"$conf_file\" not readable 1>&2
+    gh_ma_help
     exit 1
 fi
 
@@ -58,6 +69,7 @@ elif [[ $is_in_path -eq 1 ]]; then
     if [[ ! -e "$gh_exe" ]]; then
         if [[ ! -w $conf_dir ]]; then
             echo gh-ma: ERROR: cannot fix stale/nonexistent \"$gh_exe\" 1>&2
+            gh_ma_help
             exit 1
         fi
         ma_exe="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -163,6 +175,7 @@ exec {FD}<"$conf_file"
 
 if [[ -z "${FD}" ]]; then
     echo gh-ma: ERROR: could not read \"$conf_file\" 1>&2
+    gh_ma_help
     exit 1
 fi
 
@@ -190,6 +203,7 @@ remote_url=$(git config remote.origin.url)
 
 if [[ ! $? || -z "$remote_url" ]]; then
     echo gh-ma: ERROR: could not get remote url of repo 1>&2
+    gh_ma_help
     exit 1
 fi
 
@@ -207,6 +221,7 @@ IFS="$OLD_IFS"
 
 if [[ ${#id_parts[@]} -ne 3 ]]; then
     echo gh-ma: ERROR: unable to parse remote url \"$remote_url\" 1>&2
+    gh_ma_help
     exit 1
 fi
 
@@ -227,6 +242,7 @@ done
 
 if [[ -z "$token" ]]; then
     echo gh-ma: ERROR: no matching token for \"$remote_url\" 1>&2
+    gh_ma_help
     exit 1
 fi
 
