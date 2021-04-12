@@ -7,18 +7,90 @@
 
 set -o nounset
 
-gh_exe="/usr/bin/gh"
-gh_ma_ver="1.0.0"
-GH_CONFIG_DIR=${GH_CONFIG_DIR:-"$HOME/.config/gh"}
+###############################################################################
+# Basic setup
 
-if [[ ! -e "$gh_exe" ]]; then
-    echo gh-ma: ERROR: \"$gh_exe\" does not exist 1>&2
+gh_ma_ver="1.0.0"
+gh_conf_dir=${GH_CONFIG_DIR:-"$HOME/.config/gh"}
+conf_dir=${GH_MA_CONFIG_DIR:-"$gh_conf_dir/multi-account"}
+
+conf_file="$conf_dir/tokens.conf"
+
+if [[ ! -e "$gh_conf_dir" ]]; then
+    echo gh-ma: ERROR: gh config dir \"$gh_conf_dir\" does not exist 1>&2
     exit 1
 fi
-if [[ ! -e "$GH_CONFIG_DIR" ]]; then
-    echo gh-ma: ERROR: gh config dir \"$GH_CONFIG_DIR\" does not exist 1>&2
+if [[ ! -e "$conf_dir" ]]; then
+    echo gh-ma: ERROR: gh multi account config dir \"$conf_dir\" does \
+        not exist 1>&2
     exit 1
 fi
+if [[ ! -e "$conf_file" ]]; then
+    echo gh-ma: ERROR: \"$conf_file\" does not exist 1>&2
+    exit 1
+fi
+if [[ ! -r "$conf_file" ]]; then
+    echo gh-ma: ERROR: \"$conf_file\" not readable 1>&2
+    exit 1
+fi
+
+is_an_alias=0
+is_in_path=0
+
+if [[ ${BASH_SOURCE[0]} == "gh" || ${BASH_SOURCE[0]} =~ /gh$ ]]; then
+    is_in_path=1
+else
+    is_an_alias=1
+fi
+
+###############################################################################
+# Find the GitHub CLI executable to use
+
+if [[ -n "${GH_EXE+unset}" ]]; then
+    gh_exe=$GH_EXE
+elif [[ $is_in_path -eq 1 ]]; then
+    # Cache the path to the GitHub CLI executable via a symboloc link,
+    # to reduce the expense of forks incurred by using non-builtin commands.
+    gh_exe="$conf_dir/gh"
+
+    # NOTE: if file test "-e" is given a symbolic link, it tests for the
+    # existence of what the link points to, not the link itself.
+    if [[ ! -e "$gh_exe" ]]; then
+        if [[ ! -w $conf_dir ]]; then
+            echo gh-ma: ERROR: cannot fix stale/nonexistent \"$gh_exe\" 1>&2
+            exit 1
+        fi
+        ma_exe="$(readlink -f "${BASH_SOURCE[0]}")"
+        cli_exe=""
+        possibilities=($(which -a gh))
+        for file in ${possibilities[@]}; do
+            # Expand "~"
+            eval file="$file"
+
+            # Only use absolute links
+            if [[ ! $file =~ ^/ ]]; then
+                continue
+            fi
+
+            # Skip anything that seems to be the multi account wrapper script
+            if [[ "$ma_exe" != "$(readlink -f "$file")" ]]; then
+                cli_exe="$file"
+                break
+            fi
+        done
+        if [[ -z "$cli_exe" ]]; then
+            echo gh-ma: ERROR: could not find GitHub CLI executable 1>&2
+            exit 1
+        fi
+        ln -f -s "$cli_exe" "$gh_exe"
+    fi
+else
+    # If we're used via an alais just use whatever is in PATH
+    gh_exe="gh"
+fi
+
+###############################################################################
+# Get down to it
 
 # If a GitHub token is already set we have nothing to do
 set +o nounset
@@ -28,51 +100,60 @@ if [[ -n "$GH_TOKEN" || -n "$GITHUB_TOKEN" || -n "$GH_ENTERPRISE_TOKEN" ||
 fi
 set -o nounset
 
-conf_dir="$GH_CONFIG_DIR/multi-account"
-conf_file="$conf_dir/tokens.conf"
-
 case ${1:-""} in
     --version|--help|alias|completion|config|help)
         # These don't use authorization, simply pass to gh
         exec $gh_exe "$@"
         ;;
+
     --version-ma)
         echo "gh multi account version $gh_ma_ver"
         exit 0
         ;;
+
+    --ma-info)
+        if [[ $is_in_path -eq 1 ]]; then
+            echo We appear to be installed in PATH
+            if [[ -z "${GH_EXE+unset}" ]]; then
+                gh_exe="$(readlink "$gh_exe")"
+            fi
+        else
+            echo We appear to be used via an alias
+        fi
+        echo GitHub CLI executable used is \"$gh_exe\"
+        if [[ -n "${GH_EXE+unset}" ]]; then
+            echo Executable was set via env var GH_EXE
+        fi
+        echo
+
+        echo GitHub CLI config dir is \"$gh_conf_dir\"
+        if [[ -n ${GH_CONFIG_DIR+unset} ]]; then
+            echo Directory set via env var GH_CONFIG_DIR
+        fi
+        if [[ ! -w "$gh_conf_dir" ]]; then
+            echo NOTE: you do not have write access to that directory
+        fi
+        echo
+
+        echo gh multi account config dir is \"$conf_dir\"
+        if [[ -n ${GH_MA_CONFIG_DIR+unset} ]]; then
+            echo Directory set via env var GH_MA_CONFIG_DIR
+        fi
+        if [[ ! -w "$conf_dir" ]]; then
+            echo NOTE: you do not have write access to that directory
+        fi
+
+        exit 0
+        ;;
+
     --is-ma)
-        # Simply return 0, for use by scripts
+        # Simply return true (0), for use by scripts
         exit 0
         ;;
-    --setup-ma)
-        # Create config dir and empty conf files
-        if [[ ! -e "$conf_dir" ]]; then
-            echo Creating directory \"$conf_dir\"
-            mkdir $conf_dir
-        else
-            echo \"$conf_dir\" exists
-        fi
-        if [[ ! -e "$conf_file" ]]; then
-            echo Creating empty file \"$conf_file\"
-            touch $conf_file
-        else
-            echo \"$conf_file\" exists
-        fi
-        exit 0
-        ;;
+
     *)
         ;;
 esac
-
-if [[ ! -e "$conf_file" ]]; then
-    echo gh-ma: ERROR: \"$conf_file\" does not exist 1>&2
-    echo gh-ma: Run \"gh --setup-ma\" to create empty config files 1>&2
-    exit 1
-fi
-if [[ ! -r "$conf_file" ]]; then
-    echo gh-ma: ERROR: \"$conf_file\" not readable 1>&2
-    exit 1
-fi
 
 # Bash file descriptor redirection, so we don't have to do "done < $conf"
 # at the end of the while loop.  Also makes for a cleaner test of read
@@ -157,4 +238,4 @@ fi
 export GH_TOKEN="$token"
 export GH_ENTERPRISE_TOKEN="$token"
 
-exec $gh_exe "$@"
+exec "$gh_exe" "$@"
