@@ -112,6 +112,7 @@ if [[ -n "$GH_TOKEN" || -n "$GITHUB_TOKEN" || -n "$GH_ENTERPRISE_TOKEN" ||
 fi
 set -o nounset
 
+token_id=""
 case ${1:-""} in
     --version|--help|alias|completion|config|help)
         # These don't use authorization, simply pass to gh
@@ -158,6 +159,17 @@ case ${1:-""} in
         exit 0
         ;;
 
+    --token-id)
+        shift
+        if [[ -z ${1:-""} ]]; then
+            echo gh-ma: ERROR: --token-id missing token 1>&2
+            gh_ma_help
+            exit 1
+        fi
+        token_id="$1"
+        shift
+        ;;
+
     --is-ma)
         # Simply return true (0), for use by scripts
         exit 0
@@ -199,9 +211,10 @@ if [[ ${#id_arr[@]} -eq 0 ]]; then
     exit 1
 fi
 
-token=""
 remote_url=$(git config remote.origin.url)
-if [[ -n "$remote_url" ]]; then
+if [[ -n "$token_id" ]]; then
+    : # token id already set via the command line option
+elif [[ -n "$remote_url" ]]; then
     # Get id in the form of "host/account/repo" from
     # "https://host/account/repo.git" or "host:account/repo"
     # from "git@host:account/repo.git"
@@ -227,15 +240,14 @@ if [[ -n "$remote_url" ]]; then
         "${id_parts[0]}"
     )
 
-    token=""
     for id in ${possible_ids[@]}; do
         if [[ -n ${tokens_arr[$id]+unset} ]]; then
-            token="${tokens_arr[$id]}"
+            token_id="$id"
             break
         fi
     done
 
-    if [[ -z "$token" ]]; then
+    if [[ -z "$token_id" ]]; then
         echo gh-ma: ERROR: no matching token id for \"$remote_url\" 1>&2
         gh_ma_help
         exit 1
@@ -253,13 +265,14 @@ else
         gh_ma_help
         exit 1
     fi
-    token="${tokens_arr[$token_id]:-""}"
+fi
 
-    if [[ -z "$token" ]]; then
-        echo gh-ma: ERROR: default token id $token_id not in tokens.conf 1>&2
-        gh_ma_help
-        exit 1
-    fi
+token="${tokens_arr[$token_id]:-""}"
+
+if [[ -z "$token" ]]; then
+    echo gh-ma: ERROR: token id $token_id not present in tokens.conf 1>&2
+    gh_ma_help
+    exit 1
 fi
 
 if [[ "$token" == "none" ]]; then
