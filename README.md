@@ -1,4 +1,4 @@
-`gh-ma` is a Bash wrapper script for the [GitHub CLI executable](https://cli.github.com/) which makes it easier to simultaneously use multiple accounts on the same host via the use of [personal access tokens](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token).
+`gh-ma` is a Bash wrapper script for the [GitHub CLI executable](https://cli.github.com/) which makes it easier to simultaneously use multiple accounts on the same host via the use of [personal access tokens](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token).  When [CLI issue #326](https://github.com/cli/cli/issues/326) is finally implemented the `gh-ma` script will be retired.
 
 # Installation and configuration
 1. Rename `gh-ma` to `gh` and place it in a directory in your `PATH` which comes before in `PATH` before the directory containing the GitHub CLI executable.  The wrapper script should be able to automatically detect and use the CLI executable.  If it can't, then set the environmental variable `GH_EXE` to the path of the CLI executable.
