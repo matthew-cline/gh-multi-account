@@ -139,7 +139,7 @@ case ${1:-""} in
         fi
         echo
 
-        default_token_id_file="$conf_dir/default-token"
+        default_token_id_file="$conf_dir/default-token-id"
 
         if [[ -n ${GH_DEFAULT_TOKEN_ID+unset} ]]; then
             echo Default token id is $GH_DEFAULT_TOKEN_ID
@@ -273,8 +273,8 @@ else
     token_id=""
     if [[ -n "${GH_DEFAULT_TOKEN_ID+unset}" ]]; then
         token_id="${GH_DEFAULT_TOKEN_ID}"
-    elif [[ -e "$conf_dir/default-token" ]]; then
-        read token_id < "$conf_dir/default-token" 
+    elif [[ -e "$conf_dir/default-token-id" ]]; then
+        read token_id < "$conf_dir/default-token-id" 
     fi
 
     if [[ -z "$token_id" ]]; then
