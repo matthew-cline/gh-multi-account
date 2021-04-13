@@ -139,6 +139,23 @@ case ${1:-""} in
         fi
         echo
 
+        default_token_id_file="$conf_dir/default-token"
+
+        if [[ -n ${GH_DEFAULT_TOKEN_ID+unset} ]]; then
+            echo Default token id is $GH_DEFAULT_TOKEN_ID
+            echo Default token id set by env var GH_DEFAULT_TOKEN_ID
+            if [[ -r "$default_token_id_file" ]]; then
+                echo A default token id is also specified in \
+                    $default_token_id_file
+            fi
+        elif [[ -r "$default_token_id_file" ]]; then
+            echo Default token id is $(<$default_token_id_file)
+            echo Default token id is specified in $default_token_id_file
+        else
+            echo No default token id specified
+        fi
+
+        echo
         echo GitHub CLI config dir is \"$gh_conf_dir\"
         if [[ -n ${GH_CONFIG_DIR+unset} ]]; then
             echo Directory set via env var GH_CONFIG_DIR
