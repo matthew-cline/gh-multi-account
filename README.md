@@ -1,11 +1,12 @@
 `gh-ma` is a Bash wrapper script for the [GitHub CLI executable](https://cli.github.com/) which makes it easier to simultaneously use multiple accounts on the same host via the use of [personal access tokens](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token).
 
-# Installation
+# Installation and configuration
 1. Rename `gh-ma` to `gh` and place it in a directory in your `PATH` which comes before in `PATH` before the directory containing the GitHub CLI executable.  The wrapper script should be able to automatically detect and use the CLI executable.  If it can't, then set the environmental variable `GH_EXE` to the path of the CLI executable.
 1. Create the config directory `$HOME/.conf/gh/multi-account`, or `$GH_CONFIG_DIR/multi-account` if using the `GH_CONFIG_DIR` environmental variable.  Alternatively you can make any arbitrary directory the config directory by using the environmental variable `GH_MA_CONFIG_DIR`.
-1. In the config directory create the file `tokens.conf` to specify which accounts use which token.
+1. In the config directory create the file `tokens.conf` to specify which accounts use which token.  If you wish, you can even use different tokens for different repositories under the same account.
+1. If you want to use a GitHub CLI command which requires authentication, but use it while outside of a git repository with a remote origin, then you must specify a default token id.  You can do this by creating the file `default-token` in the config directory and setting its content to the token id to use.  Alternatively, you can set the environmental variable `GH_DEFAULT_TOKEN_ID`.
 
-**NOTE**: It is possible to instead us `gh-ma` via aliases, but this is not recommended.
+**NOTE**: It is possible to instead use `gh-ma` via aliases, but this is not recommended.
 
 # tokens.conf file format
 Lines in the config file take the format of `token_id: token`.  Multiple spaces and tabs are allowed between the colon and the.  The colon can be omitted if there is at least one whitespace character between the id and the token.  The token id must start at the beginning of the line, with no whitespace in front of it.
@@ -15,7 +16,7 @@ A token id has three different formats.  From most specific to least specific, t
 1. `host/account`
 1. `host`
 
-The most specific id which matches the current repo will be used.
+The most specific id which matches the current repository will be used.
 
 Example token ids:
 ```

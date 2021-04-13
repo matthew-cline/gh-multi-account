@@ -199,51 +199,67 @@ if [[ ${#id_arr[@]} -eq 0 ]]; then
     exit 1
 fi
 
-remote_url=$(git config remote.origin.url)
-
-if [[ ! $? || -z "$remote_url" ]]; then
-    echo gh-ma: ERROR: could not get remote url of repo 1>&2
-    gh_ma_help
-    exit 1
-fi
-
-# Get id in the form of "host/account/repo" from
-# "https://host/account/repo.git" or "host:account/repo"
-# from "git@host:account/repo.git"
-repo_id=${remote_url#https://}
-repo_id=${repo_id##*@}
-repo_id=${repo_id%.git}
-
-# Split into parts
-OLD_IFS="$IFS"
-IFS=':/' id_parts=($repo_id)
-IFS="$OLD_IFS"
-
-if [[ ${#id_parts[@]} -ne 3 ]]; then
-    echo gh-ma: ERROR: unable to parse remote url \"$remote_url\" 1>&2
-    gh_ma_help
-    exit 1
-fi
-
-# Possible token ids, from most specific to least specific
-possible_ids=(
-    "${id_parts[0]}/${id_parts[1]}/${id_parts[2]}"
-    "${id_parts[0]}/${id_parts[1]}"
-    "${id_parts[0]}"
-)
-
 token=""
-for id in ${possible_ids[@]}; do
-    if [[ -n ${tokens_arr[$id]+unset} ]]; then
-        token="${tokens_arr[$id]}"
-        break
-    fi
-done
+remote_url=$(git config remote.origin.url)
+if [[ -n "$remote_url" ]]; then
+    # Get id in the form of "host/account/repo" from
+    # "https://host/account/repo.git" or "host:account/repo"
+    # from "git@host:account/repo.git"
+    repo_id=${remote_url#https://}
+    repo_id=${repo_id##*@}
+    repo_id=${repo_id%.git}
 
-if [[ -z "$token" ]]; then
-    echo gh-ma: ERROR: no matching token for \"$remote_url\" 1>&2
-    gh_ma_help
-    exit 1
+    # Split into parts
+    OLD_IFS="$IFS"
+    IFS=':/' id_parts=($repo_id)
+    IFS="$OLD_IFS"
+
+    if [[ ${#id_parts[@]} -ne 3 ]]; then
+        echo gh-ma: ERROR: unable to parse remote url \"$remote_url\" 1>&2
+        gh_ma_help
+        exit 1
+    fi
+
+    # Possible token ids, from most specific to least specific
+    possible_ids=(
+        "${id_parts[0]}/${id_parts[1]}/${id_parts[2]}"
+        "${id_parts[0]}/${id_parts[1]}"
+        "${id_parts[0]}"
+    )
+
+    token=""
+    for id in ${possible_ids[@]}; do
+        if [[ -n ${tokens_arr[$id]+unset} ]]; then
+            token="${tokens_arr[$id]}"
+            break
+        fi
+    done
+
+    if [[ -z "$token" ]]; then
+        echo gh-ma: ERROR: no matching token id for \"$remote_url\" 1>&2
+        gh_ma_help
+        exit 1
+    fi
+else
+    token_id=""
+    if [[ -n "${GH_DEFAULT_TOKEN_ID+unset}" ]]; then
+        token_id="${GH_DEFAULT_TOKEN_ID}"
+    elif [[ -e "$conf_dir/default-token" ]]; then
+        read token_id < "$conf_dir/default-token" 
+    fi
+
+    if [[ -z "$token_id" ]]; then
+        echo gh-ma: ERROR: no default token id 1>&2
+        gh_ma_help
+        exit 1
+    fi
+    token="${tokens_arr[$token_id]:-""}"
+
+    if [[ -z "$token" ]]; then
+        echo gh-ma: ERROR: default token id $token_id not in tokens.conf 1>&2
+        gh_ma_help
+        exit 1
+    fi
 fi
 
 if [[ "$token" == "none" ]]; then
