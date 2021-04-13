@@ -102,7 +102,8 @@ else
 fi
 
 ###############################################################################
-# Get down to it
+# Setup is done, but we might not have a lot to do, depending upon the
+# environmental variables and the command line arguments.
 
 # If a GitHub token is already set we have nothing to do
 set +o nounset
@@ -140,10 +141,27 @@ case ${1:-""} in
         echo
 
         default_token_id_file="$conf_dir/default-token-id"
+        default_token_id_script="$conf_dir/default-token-id.sh"
+
+        if [[ -r "$default_token_id_script" ]]; then
+            source "$default_token_id_script"
+            script_default_id=${token_id:-""}
+        fi
 
         if [[ -n ${GH_DEFAULT_TOKEN_ID+unset} ]]; then
             echo Default token id is $GH_DEFAULT_TOKEN_ID
             echo Default token id set by env var GH_DEFAULT_TOKEN_ID
+            if [[ -n "$srcript_default_id" ]]; then
+                echo A default token id is also specified in \
+                    $default_token_id_script
+            fi
+            if [[ -r "$default_token_id_file" ]]; then
+                echo A default token id is also specified in \
+                    $default_token_id_file
+            fi
+        elif [[ -n "$script_default_id" ]]; then
+            echo Default token id is $script_default_id
+            echo Default token id is specified in $default_token_id_script
             if [[ -r "$default_token_id_file" ]]; then
                 echo A default token id is also specified in \
                     $default_token_id_file
@@ -153,6 +171,11 @@ case ${1:-""} in
             echo Default token id is specified in $default_token_id_file
         else
             echo No default token id specified
+        fi
+
+        if [[ -r "$default_token_id_script" && -z "$script_default_id" ]]; then
+            echo $default_token_id_script exists but does not set token_id \
+                when sourced
         fi
 
         echo
@@ -195,6 +218,9 @@ case ${1:-""} in
     *)
         ;;
 esac
+
+###############################################################################
+# Get down to it
 
 # Bash file descriptor redirection, so we don't have to do "done < $conf"
 # at the end of the while loop.  Also makes for a cleaner test of read
@@ -270,11 +296,15 @@ elif [[ -n "$remote_url" ]]; then
         exit 1
     fi
 else
-    token_id=""
     if [[ -n "${GH_DEFAULT_TOKEN_ID+unset}" ]]; then
         token_id="${GH_DEFAULT_TOKEN_ID}"
-    elif [[ -e "$conf_dir/default-token-id" ]]; then
-        read token_id < "$conf_dir/default-token-id" 
+    else
+        if [[ -r "$conf_dir/default-token-id.sh" ]]; then
+            source "$conf_dir/default-token-id.sh"
+        fi
+        if [[ -z "$token_id" && -r "$conf_dir/default-token-id" ]]; then
+            read token_id < "$conf_dir/default-token-id" 
+        fi
     fi
 
     if [[ -z "$token_id" ]]; then
