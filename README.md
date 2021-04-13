@@ -25,7 +25,7 @@ A token id has three different formats.  From most specific to least specific, t
 1. `host/account`
 1. `host`
 
-The most specific id which matches the current repository's remote origin URL will be used.
+The most specific id which matches the current repository's remote origin URL will be used, unless that choice is overridden by either any of the [GitHub CLI environmental variables](https://cli.github.com/manual/gh_help_environment) related to tokens or by the `--token-id` command line option.
 
 Example token ids:
 ```
