@@ -18,14 +18,14 @@ Pairs of token ids and tokens are stored in a configuration file, and one of the
 **NOTE**: It is possible to use `gh-ma` via aliases instead of renaming it to `gh` and installing it in `PATH`, but this is not recommended.  Specifically, the GitHub CLI executable can rewrite the [git config file](https://git-scm.com/docs/git-config) so that `gh` is used as a [custom credential helper](https://git-scm.com/docs/gitcredentials#_custom_helpers) so that plain `git` commands will use GitHub CLI authentication.  If the wrapper script is only invoked via shell aliases then plain `git` commands will authenticate differently than wrapped invocations of `gh`.
 
 # tokens.conf and token ids
-Lines in the `tokens.conf` file take the format of `token_id: token`.  Multiple spaces and tabs are allowed between the colon and the personal access token string.  The colon can be omitted if there is at least one whitespace character between the id and the token.  The token id must start at the beginning of the line, with no whitespace in front of it.
+Lines in the `tokens.conf` file take the format of `token_id: token`.  Multiple spaces and tabs are allowed between the colon and the [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) string.  The colon can be omitted if there is at least one whitespace character between the id and the token.  The token id must start at the beginning of the line, with no whitespace in front of it.
 
 A token id has three different formats.  From most specific to least specific, the formats are:
 1. `host/account/repo`
 1. `host/account`
 1. `host`
 
-The most specific id which matches the current repository will be used.
+The most specific id which matches the current repository's remote origin URL will be used.
 
 Example token ids:
 ```
@@ -39,6 +39,14 @@ If the token value is either `none` or blank then the wrapper script will pass n
 The order of the lines is unimportant, except when the exact same token id is used multiple times, in which case the last line using that token id is the one which will count.
 
 Empty lines and lines starting with a "#" are ignored.
+
+# Command line options
+Any command line option meant for `gh-ma` must come at the very start of the command line arguments.
+
+* `--token-id <ID>`: Specify the id of the [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) to use.  This overrides everything except for [GitHub CLI environmental variables](https://cli.github.com/manual/gh_help_environment) related to tokens.
+* `--version-ma`: Prints the version of `gh-ma`.
+* `--ma-info`: Prints various information about the configuration/setup of `gh-ma`.  Useful for troubleshooting.
+* `--is-ma`: Exits with `0` if passed to the wrapper script, exits with `1` (and prints an error message) if passed directly to the CLI executable.
 
 # Compatibility
 `gh-ma` should run on any [POSIX](https://en.wikipedia.org/wiki/POSIX) compliant system on which is installed the executables for `bash`, `readlink`, `ln` and `which`.  However, it has only been tested on [Fedora](https://en.wikipedia.org/wiki/Fedora_(operating_system)) 33.
